@@ -12,6 +12,7 @@ from hid.gamepad import (
     joystick_connected,
     load_gamepad_configuration,
 )
+from hid.keyboard import Keyboard
 from orbit.onnx_command_generator import (
     OnnxCommandGenerator,
     OnnxControllerContext,
@@ -29,6 +30,12 @@ def main():
     parser.add_argument("policy_file_path", type=Path)
     parser.add_argument("-m", "--mock", action="store_true")
     parser.add_argument("--gamepad-config", type=Path)
+    parser.add_argument(
+        "-k",
+        "--keyboard",
+        action="store_true",
+        help="drive with the keyboard (terminal raw input) instead of a gamepad",
+    )
     options = parser.parse_args()
 
     conf_file = orbit.orbit_configuration.detect_config_file(options.policy_file_path)
@@ -45,8 +52,13 @@ def main():
     # 333 Hz state update / 6 => ~56 Hz control updates
     timeing_policy = EventDivider(context.event, 6)
 
-    gamepad = None
-    if joystick_connected():
+    controller = None
+    if options.keyboard:
+        print("[INFO] using keyboard control")
+        controller = Keyboard(context)
+        # the keyboard owns the terminal, so it is started after the input()
+        # prompt below rather than here
+    elif joystick_connected():
         if options.gamepad_config is not None:
             print("[INFO] loading gamepad config from file")
             gamepad_config = load_gamepad_configuration(options.gamepad_config)
@@ -54,8 +66,8 @@ def main():
             print("[INFO] using default gamepad configuration")
             gamepad_config = GamepadConfig()
 
-        gamepad = Gamepad(context, gamepad_config)
-        gamepad.start_listening()
+        controller = Gamepad(context, gamepad_config)
+        controller.start_listening()
 
     if options.mock:
         spot = MockSpot()
@@ -70,7 +82,13 @@ def main():
 
             input()
             spot.start_command_stream(command_generator, timeing_policy)
-            input()
+
+            if isinstance(controller, Keyboard):
+                # grab the terminal and drive until the user presses a quit key
+                controller.start_listening()
+                controller.wait_until_stopped()
+            else:
+                input()
 
         except KeyboardInterrupt:
             print("killed with ctrl-c")
@@ -80,9 +98,9 @@ def main():
             spot.stop_command_stream()
             print("stop state stream")
             spot.stop_state_stream()
-            print("stop game pad")
-            if gamepad is not None:
-                gamepad.stop_listening()
+            print("stop controller")
+            if controller is not None:
+                controller.stop_listening()
             print("all stopped")
 
 

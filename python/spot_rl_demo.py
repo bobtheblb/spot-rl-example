@@ -36,6 +36,11 @@ def main():
         action="store_true",
         help="drive with the keyboard (terminal raw input) instead of a gamepad",
     )
+    parser.add_argument(
+        "--stand_bit",
+        action="store_true",
+        help="include the standstill bit in the model observations",
+    )
     options = parser.parse_args()
 
     conf_file = orbit.orbit_configuration.detect_config_file(options.policy_file_path)
@@ -47,7 +52,7 @@ def main():
 
     state_handler = StateHandler(context)
     print(options.verbose)
-    command_generator = OnnxCommandGenerator(context, config, policy_file, options.verbose)
+    command_generator = OnnxCommandGenerator(context, config, policy_file, options.verbose, options.stand_bit)
 
     # 333 Hz state update / 6 => ~56 Hz control updates
     timeing_policy = EventDivider(context.event, 6)

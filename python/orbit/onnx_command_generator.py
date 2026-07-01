@@ -54,9 +54,10 @@ def print_observations(observations: List[float]):
     print("base_linear_velocity:", observations[0:3])
     print("base_angular_velocity:", observations[3:6])
     print("projected_gravity:", observations[6:9])
-    print("joint_positions", observations[12:24])
-    print("joint_velocity", observations[24:36])
-    print("last_action", observations[36:48])
+    print("standstill", observations[12:13])
+    print("joint_positions", observations[13:25])
+    print("joint_velocity", observations[25:37])
+    print("last_action", observations[37:49])
 
 
 class OnnxCommandGenerator:
@@ -64,7 +65,12 @@ class OnnxCommandGenerator:
     an onnx model and converts the output to a spot command"""
 
     def __init__(
-        self, context: OnnxControllerContext, config: OrbitConfig, policy_file_name: os.PathLike, verbose: bool
+        self,
+        context: OnnxControllerContext,
+        config: OrbitConfig,
+        policy_file_name: os.PathLike,
+        verbose: bool,
+        stand_bit: bool = False,
     ):
         self._context = context
         self._config = config
@@ -74,6 +80,7 @@ class OnnxCommandGenerator:
         self._init_pos = None
         self._init_load = None
         self.verbose = verbose
+        self.stand_bit = stand_bit
 
     def __call__(self):
         """makes class a callable and computes model output for latest controller context
@@ -133,6 +140,10 @@ class OnnxCommandGenerator:
         observations += self._context.velocity_cmd
         if self.verbose:
             print("[INFO] cmd", self._context.velocity_cmd)
+        # standstill bit: 1 if the base velocity command is (near) zero, else 0
+        if self.stand_bit:
+            cmd_norm = float(np.linalg.norm(self._context.velocity_cmd))
+            observations += [1.0 if cmd_norm < 0.01 else 0.0]
         observations += ob.get_joint_positions(state, config)
         observations += ob.get_joint_velocity(state)
         observations += self._last_action

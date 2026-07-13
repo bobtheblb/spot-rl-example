@@ -1,0 +1,3 @@
+[submodule "external/spot_python_sdk"]
+	path = external/spot_python_sdk
+	url = https://github.com/boston-dynamics/spot-sdk.git

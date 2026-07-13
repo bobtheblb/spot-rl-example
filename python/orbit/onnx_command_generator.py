@@ -140,9 +140,11 @@ class OnnxCommandGenerator:
         observations += self._context.velocity_cmd
         if self.verbose:
             print("[INFO] cmd", self._context.velocity_cmd)
-        # standstill bit: 1 if the base velocity command is (near) zero, else 0
+        # standstill bit: 1 if the base velocity command is (near) zero, else 0.
+        # only the first three entries are velocities (x, y, yaw); any trailing
+        # pose commands (height, roll, pitch) must not count toward the norm.
         if self.stand_bit:
-            cmd_norm = float(np.linalg.norm(self._context.velocity_cmd))
+            cmd_norm = float(np.linalg.norm(self._context.velocity_cmd[:3]))
             observations += [1.0 if cmd_norm < 0.01 else 0.0]
         observations += ob.get_joint_positions(state, config)
         observations += ob.get_joint_velocity(state)
